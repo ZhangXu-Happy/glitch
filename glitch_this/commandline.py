@@ -54,8 +54,7 @@ def is_latest(version: str) -> bool:
 def get_help(glitch_min: float, glitch_max: float) -> Dict:
     help_text = dict()
     help_text['path'] = 'Relative or Absolute string path to source image'
-    help_text['level'] = f'Number between {glitch_min} and {
-        glitch_max}, inclusive, representing amount of glitchiness'
+    help_text['level'] = f'Number between {glitch_min} and {glitch_max}, inclusive, representing amount of glitchiness'
     help_text['color'] = 'Include if you want to add color offset'
     help_text['scan'] = 'Include if you want to add scan lines effect\nDefaults to False'
     help_text['seed'] = 'Set a random seed for generating similar images across runs'
@@ -63,8 +62,7 @@ def get_help(glitch_min: float, glitch_max: float) -> Dict:
     help_text['frames'] = 'Number of frames to include in output GIF, default - 23'
     help_text['step'] = 'Glitch every step\'th frame of output GIF, default - 1 (every frame)'
     help_text['increment'] = 'Increment glitch_amount by given value after glitching every frame of output GIF'
-    help_text['cycle'] = f'Include if glitch_amount should be cycled back to {
-        glitch_min} or {glitch_max} if it over/underflows'
+    help_text['cycle'] = f'Include if glitch_amount should be cycled back to {glitch_min} or {glitch_max} if it over/underflows'
     help_text['duration'] = 'How long to display each frame (in centiseconds), default - 200'
     help_text['relative_duration'] = 'Multiply given value to input GIF\'s original duration and use that as duration'
     help_text['loop'] = 'How many times the glitched GIF should loop, default - 0 (infinite loop)'
@@ -139,7 +137,16 @@ def main():
     # Set up full_path, for output saving location
     out_path, out_file = os.path.split(Path(args.src_img_path))
     out_filename, out_fileex = out_file.rsplit('.', 1)
-    out_filename = 'glitched_' + out_filename
+    # Build filename with parameters
+    out_filename = f"glitched_{out_filename}_l{args.glitch_level}"
+    if args.color:
+        out_filename += "_c"
+    if args.scan_lines:
+        out_filename += "_s"
+    if args.seed is not None:
+        out_filename += f"_sd{int(args.seed)}"
+    if args.gif:
+        out_filename += "_g"
     # Output file extension should be '.gif' if output file is going to be a gif
     if args.gif:
         out_fileex = "gif"
@@ -228,8 +235,7 @@ def main():
         )
         t3 = time()
         print(
-            f'Glitched GIF saved in "{full_path}"\nFrames = {
-                args.frames}, Duration = {args.duration}, Loop = {args.loop}'
+            f'Glitched GIF saved in "{full_path}"\nFrames = {args.frames}, Duration = {args.duration}, Loop = {args.loop}'
         )
     else:
         for i, frame in enumerate(glitch_img):
