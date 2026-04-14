@@ -574,3 +574,144 @@ class ImageGlitcher:
         results afterwards on non fixed size loops
         """
         random.seed(self.seed + offset)
+
+    def glitch_images_to_gif(self, src_img1: Union[str, Image.Image], src_img2: Union[str, Image.Image],
+                             glitch_amount: Union[int, float], frames: int = 23, duration: int = 200,
+                             seed: Optional[Union[int, float]] = None, glitch_change: Union[int, float] = 0.0,
+                             color_offset: bool = False, scan_lines: bool = False, cycle: bool = False,
+                             transition_frames: int = 0) -> List[Image.Image]:
+        """
+        将两张图片生成为动图，并添加 glitch 效果
+        
+        动图序列：img1 -> glitch img1 -> ... -> glitch img2 -> img2
+        
+        PARAMETERS:-
+        src_img1: 第一张图片的路径或 Image 对象
+        src_img2: 第二张图片的路径或 Image 对象
+        glitch_amount: Glitch 强度等级，[0.1, 10.0] (包含)
+        frames: 生成的总帧数，默认 23
+        duration: 每帧显示的时长（百分之一秒），默认 200
+        seed: 随机种子，用于在多次运行中生成相似的图像，默认为 None
+        glitch_change: 每次 glitch 后 glitch_amount 的增量/减量
+        color_offset: 是否添加颜色偏移效果
+        scan_lines: 是否添加扫描线效果
+        cycle: 当 glitch_amount 溢出时是否循环回到 glitch_min 或 glitch_max
+        transition_frames: 过渡帧数（在两张图片之间进行混合过渡），默认 0
+        
+        RETURNS:-
+        List[Image.Image]: 包含所有帧的列表，可以直接保存为 GIF
+        """
+        # 参数校验
+        if not ((isinstance(glitch_amount, float) or isinstance(glitch_amount, int))
+                and self.glitch_min <= glitch_amount <= self.glitch_max):
+            raise ValueError('glitch_amount parameter must be a positive number '
+                             f'in range {self.glitch_min} to {self.glitch_max}, inclusive')
+        if not ((isinstance(glitch_change, float) or isinstance(glitch_change, int))
+                and -self.glitch_max <= glitch_change <= self.glitch_max):
+            raise ValueError(
+                f'glitch_change parameter must be a number between {-self.glitch_max} and {self.glitch_max}, inclusive')
+        if seed and not (isinstance(seed, float) or isinstance(seed, int)):
+            raise ValueError('seed parameter must be a number')
+        if not (frames > 0 and isinstance(frames, int)):
+            raise ValueError('frames param must be a positive integer value greater than 0')
+        if not isinstance(cycle, bool):
+            raise ValueError('cycle param must be a boolean')
+        if not isinstance(color_offset, bool):
+            raise ValueError('color_offset param must be a boolean')
+        if not isinstance(scan_lines, bool):
+            raise ValueError('scan_lines param must be a boolean')
+        if not (transition_frames >= 0 and isinstance(transition_frames, int)):
+            raise ValueError('transition_frames must be a non-negative integer')
+        
+        # 加载两张图片
+        try:
+            img1 = self.__fetch_image(src_img1, gif_allowed=False)
+            img2 = self.__fetch_image(src_img2, gif_allowed=False)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f'Image not found: {e}')
+        except Exception:
+            raise Exception('File format not supported - must be a non-animated image file')
+        
+        # 确保两张图片尺寸相同
+        if img1.size != img2.size:
+            img2 = img2.resize(img1.size, Image.Resampling.LANCZOS)
+        
+        # 设置随机种子
+        self.seed = seed
+        if self.seed:
+            self.__reset_rng_seed()
+        
+        # 设置临时目录
+        if os.path.isdir(self.gif_dirpath):
+            shutil.rmtree(self.gif_dirpath)
+        os.mkdir(self.gif_dirpath)
+        
+        # 设置小数精度
+        original_prec = getcontext().prec
+        getcontext().prec = 4
+        
+        glitched_imgs = []
+        
+        # 计算各阶段的帧数
+        # 阶段1: img1 的 glitch 帧（前半部分）
+        # 阶段2: 过渡帧（可选）
+        # 阶段3: img2 的 glitch 帧（后半部分）
+        
+        half_frames = frames // 2
+        if transition_frames > 0:
+            img1_frames = (frames - transition_frames) // 2
+            img2_frames = frames - transition_frames - img1_frames
+        else:
+            img1_frames = half_frames
+            img2_frames = frames - half_frames
+        
+        current_glitch = glitch_amount
+        
+        # 阶段1: glitch img1
+        self.pixel_tuple_len = len(img1.getbands())
+        self.img_width, self.img_height = img1.size
+        self.img_mode = img1.mode
+        self.inputarr = np.asarray(img1)
+        self.outputarr = np.array(img1)
+        
+        for i in range(img1_frames):
+            glitched_img = self.__get_glitched_img(current_glitch, color_offset, scan_lines)
+            file_path = os.path.join(self.gif_dirpath, f'glitched_frame_{i}.png')
+            glitched_img.save(file_path, compress_level=3)
+            glitched_imgs.append(Image.open(file_path).copy())
+            current_glitch = self.__change_glitch(current_glitch, glitch_change, cycle)
+        
+        # 阶段2: 过渡帧（混合两张图片）
+        if transition_frames > 0:
+            for i in range(transition_frames):
+                alpha = (i + 1) / (transition_frames + 1)
+                # 创建过渡帧
+                blended = Image.blend(img1, img2, alpha)
+                
+                # 对过渡帧也应用 glitch
+                self.inputarr = np.asarray(blended)
+                self.outputarr = np.array(blended)
+                glitched_blend = self.__get_glitched_img(current_glitch, color_offset, scan_lines)
+                
+                file_path = os.path.join(self.gif_dirpath, f'glitched_frame_transition_{i}.png')
+                glitched_blend.save(file_path, compress_level=3)
+                glitched_imgs.append(Image.open(file_path).copy())
+                current_glitch = self.__change_glitch(current_glitch, glitch_change, cycle)
+        
+        # 阶段3: glitch img2
+        self.inputarr = np.asarray(img2)
+        self.outputarr = np.array(img2)
+        
+        for i in range(img2_frames):
+            glitched_img = self.__get_glitched_img(current_glitch, color_offset, scan_lines)
+            file_path = os.path.join(self.gif_dirpath, f'glitched_frame_{img1_frames + i}.png')
+            glitched_img.save(file_path, compress_level=3)
+            glitched_imgs.append(Image.open(file_path).copy())
+            current_glitch = self.__change_glitch(current_glitch, glitch_change, cycle)
+        
+        # 恢复小数精度
+        getcontext().prec = original_prec
+        # 清理临时目录
+        shutil.rmtree(self.gif_dirpath)
+        
+        return glitched_imgs

@@ -70,6 +70,7 @@ def get_help(glitch_min: float, glitch_max: float) -> Dict:
     help_text['force'] = 'Forcefully overwrite output file'
     help_text['out'] = 'Explcitly supply full/relative path to output file'
     help_text["output_frames"] = "Output individual frames of the glitched GIF as separate images"
+    help_text['second'] = 'Path to second image for creating a glitched GIF from two images'
 
     return help_text
 
@@ -120,6 +121,8 @@ def main():
                            help=help_text['out'])
     argparser.add_argument("-of", "--output-frames", dest="output_frames",
                            action="store_true", help=help_text["output_frames"])
+    argparser.add_argument('-s2', '--second', dest='second_img', metavar='Second_Image', type=str,
+                           help=help_text['second'])
     args = argparser.parse_args()
 
     # Sanity check inputs
@@ -133,6 +136,10 @@ def main():
         raise FileNotFoundError('No image found at given path')
     if args.output_frames and not args.gif:
         raise ValueError("Cannot output frames without GIF output enabled")
+    if hasattr(args, 'second_img') and args.second_img and not os.path.isfile(args.second_img):
+        raise FileNotFoundError('No second image found at given path')
+    if args.second_img and args.input_gif:
+        raise ValueError("Cannot use second image with input GIF mode")
 
     # Set up full_path, for output saving location
     out_path, out_file = os.path.split(Path(args.src_img_path))
@@ -190,7 +197,17 @@ def main():
     global version_filepath
     version_filepath = os.path.join(glitcher.lib_path, 'version.info')
     t0 = time()
-    if not args.input_gif:
+    if args.second_img:
+        # Generate GIF from two images with glitch effect
+        glitch_img = glitcher.glitch_images_to_gif(
+            args.src_img_path, args.second_img, args.glitch_level,
+            frames=args.frames,
+            color_offset=args.color,
+            scan_lines=args.scan_lines,
+            seed=args.seed
+        )
+        args.gif = True
+    elif not args.input_gif:
         # Get glitched image or GIF (from image)
         glitch_img = glitcher.glitch_image(args.src_img_path, args.glitch_level,
                                            glitch_change=args.increment,

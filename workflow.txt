@@ -1,0 +1,61 @@
+pip install numpy
+pip install pillow
+
+如果快速出现网络错误，把加速器等所有网络辅助设备断开连接后关闭
+
+
+python glitch_this/commandline.py test.png 5
+
+python：                      运行python   
+glitch_this/commandline.py：  py文件所在的路径
+test.png：                    测试图像所在路径
+5：                           故障程度
+
+python glitch_this\commandline.py F:\计算机编程技术基础\img\img4.png 8
+
+
+绝对路径：F:\计算机编程技术基础\glitch-this\glitch_this\commandline.py
+
+相对路径：glitch_this\commandline.py
+
+
+出现SyntaxError: EOL while scanning string literal，定位至出现错误的行，把换行恢复
+
+
+python glitch_this/commandline.py test.png 2
+
+报错：Exception: glitched_test.png already exists
+      Cannot overwrite existing file unless -f or --force is included
+      Program Aborted
+
+添加-f:
+python glitch_this/commandline.py -f test.png 2
+
+对其他位置存储的图片进行处理
+
+python glitch_this/commandline.py ../img1.png 2
+python glitch_this/commandline.py -c ../img1.png 2
+python glitch_this/commandline.py -s ../img1.png 2
+python glitch_this/commandline.py -g ../img1.png 2
+
+
+安装智能体
+1、腾讯CodeBuddy
+2、文心快码
+3、通义灵码
+
+
+1、解决问题：文件命名一致导致无法保存
+
+对同一张图片执行python glitch_this/commandline.py test.png 5操作时，生成的图片名称相同，不能保存，如何修改名称让每次生成的图片都能保存
+
+不要增加时间戳，增加参数命名
+
+不，因为每次运行文件，我们都会给出一些参数，能不能用具体参数来命名？
+
+
+2、编写其他功能
+
+请帮我在这个项目中增加实现两张图片生成动图并添加glitch的代码
+
+python glitch_this/commandline.py test.png 5 -s2 test2.png -g -c -s
